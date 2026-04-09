@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_SYNC=${DB_SYNC:-true}
+      - DB_USERNAME=${DB_USERNAME:-meridian}
+      - DB_PASSWORD=${DB_PASSWORD:-CHANGE_ME_strong_password_here}
+      - DB_NAME=${DB_NAME:-meridian_db}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      - ENCRYPTION_KEY_PREVIOUS=${ENCRYPTION_KEY_PREVIOUS:-}
+      - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-8}
+      - POW_DIFFICULTY=${POW_DIFFICULTY:-20}
+      - DOWNLOAD_TOKEN_SECRET=${DOWNLOAD_TOKEN_SECRET:-0000000000000000000000000000000000000000000000000000000000000000}
+    volumes:
+      - file_storage:/data/files
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/api/v1/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${DB_USERNAME:-meridian}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-CHANGE_ME_strong_password_here}
+      - POSTGRES_DB=${DB_NAME:-meridian_db}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-meridian} -d ${DB_NAME:-meridian_db}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pg_data:
+    driver: local
+  file_storage:
+    driver: local

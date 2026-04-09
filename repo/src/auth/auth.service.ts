@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { Session } from './session.entity';
 import { LoginAttempt } from './login-attempt.entity';
@@ -24,6 +23,7 @@ import { AuditService } from '../audit/audit.service';
 import { getTraceId } from '../common/interceptors/trace-id.interceptor';
 import { createHash } from 'crypto';
 import { EncryptionService } from '../encryption/encryption.service';
+import { bcryptAdapter } from './bcrypt-adapter';
 
 @Injectable()
 export class AuthService {
@@ -58,7 +58,7 @@ export class AuthService {
       throw new HttpException('Username already taken', HttpStatus.CONFLICT);
     }
 
-    const passwordHash = await bcrypt.hash(
+    const passwordHash = await bcryptAdapter.hash(
       data.password,
       this.config.bcryptCostFactor,
     );
@@ -129,7 +129,7 @@ export class AuthService {
     }
 
     const storedPasswordHash = this.decryptAtRest(user.passwordHash);
-    const passwordValid = await bcrypt.compare(password, storedPasswordHash);
+    const passwordValid = await bcryptAdapter.compare(password, storedPasswordHash);
     if (!passwordValid) {
       await this.recordLoginAttempt(user.id, ipAddress, false);
       await this.lockoutService.checkAndLock(user.id);
@@ -188,7 +188,7 @@ export class AuthService {
 
     const user = await this.userRepo.findOneOrFail({ where: { id: userId } });
 
-    const currentValid = await bcrypt.compare(
+    const currentValid = await bcryptAdapter.compare(
       currentPassword,
       this.decryptAtRest(user.passwordHash),
     );
@@ -199,7 +199,7 @@ export class AuthService {
     // Check password history
     await this.checkPasswordHistory(userId, newPassword);
 
-    const newHash = await bcrypt.hash(newPassword, this.config.bcryptCostFactor);
+    const newHash = await bcryptAdapter.hash(newPassword, this.config.bcryptCostFactor);
     user.passwordHash = this.encryptAtRest(newHash);
     await this.userRepo.save(user);
 
@@ -282,7 +282,7 @@ export class AuthService {
 
     await this.checkPasswordHistory(resetToken.userId, newPassword);
 
-    const newHash = await bcrypt.hash(newPassword, this.config.bcryptCostFactor);
+    const newHash = await bcryptAdapter.hash(newPassword, this.config.bcryptCostFactor);
 
     const user = await this.userRepo.findOneOrFail({
       where: { id: resetToken.userId },
@@ -349,7 +349,7 @@ export class AuthService {
     });
 
     for (const entry of history) {
-      const matches = await bcrypt.compare(
+      const matches = await bcryptAdapter.compare(
         newPassword,
         this.decryptAtRest(entry.passwordHash),
       );

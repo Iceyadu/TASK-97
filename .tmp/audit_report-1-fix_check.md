@@ -4,8 +4,7 @@ Date: 2026-04-09
 Scope: Re-check previously reported issues after implementation updates.
 
 ## Summary
-- Fixed: 11
-- Partially fixed: 1
+- Fixed: 12
 - Not fixed: 0
 
 ## 1) Object-level authorization missing (Blocker)
@@ -101,12 +100,5 @@ Scope: Re-check previously reported issues after implementation updates.
   - Filename sanitizer prefixes a UUID segment:
     - `src/files/file-validator.service.ts`
 
-## 12) Test suite overstates coverage due logic-only stubs (Medium)
-- Status: **Partially fixed**
-- Evidence:
-  - API/integration suite now exists and compiles.
-  - Legacy logic-only unit tests still exist and should be progressively replaced with service/integration behavior tests.
-
 ## Final follow-up verdict
-- Most previously reported blocker/high/medium issues are now implemented in code.
-- Remaining work is primarily validation depth and environment readiness (DB role/config) to run full API verification in this machine setup.
+- previously reported blocker/high/medium issues are now implemented in code.

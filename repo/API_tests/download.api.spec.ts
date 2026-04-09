@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { TraceIdInterceptor } from '../src/common/interceptors/trace-id.interceptor';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
+import { registerWithPow } from './helpers/pow';
 
 describe('Download API (e2e)', () => {
   let app: INestApplication;
@@ -37,9 +38,11 @@ describe('Download API (e2e)', () => {
     it('should reject invalid download token with auth', async () => {
       // Register and login first
       const username = `dluser_${Date.now()}`;
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ username, password: 'P@ssw0rd!Strong123', displayName: 'DL User' });
+      await registerWithPow(app, {
+        username,
+        password: 'P@ssw0rd!Strong123',
+        displayName: 'DL User',
+      });
 
       const loginRes = await request(app.getHttpServer())
         .post('/api/v1/auth/login')

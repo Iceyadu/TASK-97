@@ -23,13 +23,24 @@ TEST_DB_PORT="${TEST_DB_PORT:-}"
 TEST_DB_USER="${TEST_DB_USER:-meridian}"
 TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-meridian_test_password}"
 TEST_DB_NAME="${TEST_DB_NAME:-meridian_test}"
+TEST_POW_DIFFICULTY="${TEST_POW_DIFFICULTY:-8}"
+TEST_ENCRYPTION_KEY="${TEST_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
+TEST_DOWNLOAD_TOKEN_SECRET="${TEST_DOWNLOAD_TOKEN_SECRET:-0000000000000000000000000000000000000000000000000000000000000000}"
 
 cleanup_test_db() {
   docker rm -f "$TEST_DB_CONTAINER" >/dev/null 2>&1 || true
 }
 
+ensure_test_dependencies() {
+  if [ ! -x "node_modules/.bin/jest" ] || [ ! -d "node_modules/ts-jest" ]; then
+    echo -e "${YELLOW}Installing test dependencies (npm ci --ignore-scripts)...${NC}"
+    npm ci --ignore-scripts
+  fi
+}
+
 # --- Unit Tests ---
 if [ "$RUN_UNIT_TESTS" = "true" ]; then
+  ensure_test_dependencies
   echo ""
   echo -e "${YELLOW}Running unit tests (23 suites, 249 tests)...${NC}"
   if npx jest --config jest.unit.config.js --no-cache 2>&1; then
@@ -87,6 +98,9 @@ if [ "$RUN_API_TESTS" = "true" ]; then
           DB_USERNAME="$TEST_DB_USER" \
           DB_PASSWORD="$TEST_DB_PASSWORD" \
           DB_NAME="$TEST_DB_NAME" \
+        ENCRYPTION_KEY="$TEST_ENCRYPTION_KEY" \
+        DOWNLOAD_TOKEN_SECRET="$TEST_DOWNLOAD_TOKEN_SECRET" \
+        POW_DIFFICULTY="$TEST_POW_DIFFICULTY" \
           DB_SYNC=true \
           NODE_ENV=test \
           npx jest --config jest.api.config.js --no-cache --runInBand 2>&1; then

@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { TraceIdInterceptor } from '../src/common/interceptors/trace-id.interceptor';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
+import { registerWithPow } from './helpers/pow';
 
 describe('Auth API (e2e)', () => {
   let app: INestApplication;
@@ -32,13 +33,11 @@ describe('Auth API (e2e)', () => {
 
   describe('POST /api/v1/auth/register', () => {
     it('should register a new user', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({
-          username: `testuser_${Date.now()}`,
-          password: 'P@ssw0rd!Strong123',
-          displayName: 'Test User',
-        });
+      const res = await registerWithPow(app, {
+        username: `testuser_${Date.now()}`,
+        password: 'P@ssw0rd!Strong123',
+        displayName: 'Test User',
+      });
 
       expect([200, 201]).toContain(res.status);
       expect(res.body.data || res.body).toHaveProperty('id');
@@ -58,13 +57,17 @@ describe('Auth API (e2e)', () => {
 
     it('should reject duplicate usernames', async () => {
       const username = `dup_${Date.now()}`;
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ username, password: 'P@ssw0rd!Strong123', displayName: 'First' });
+      await registerWithPow(app, {
+        username,
+        password: 'P@ssw0rd!Strong123',
+        displayName: 'First',
+      });
 
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ username, password: 'P@ssw0rd!Strong456', displayName: 'Second' });
+      const res = await registerWithPow(app, {
+        username,
+        password: 'P@ssw0rd!Strong456',
+        displayName: 'Second',
+      });
 
       expect(res.status).toBe(409);
     });
@@ -74,9 +77,11 @@ describe('Auth API (e2e)', () => {
     const username = `loginuser_${Date.now()}`;
 
     beforeAll(async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ username, password: 'P@ssw0rd!Strong123', displayName: 'Login User' });
+      await registerWithPow(app, {
+        username,
+        password: 'P@ssw0rd!Strong123',
+        displayName: 'Login User',
+      });
     });
 
     it('should login with valid credentials', async () => {

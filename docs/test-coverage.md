@@ -1,6 +1,9 @@
 # Test Coverage — Final
 
-## Status: 23 suites, 249 tests (unit-heavy); API/integration runtime verification pending environment setup
+## Status
+
+- **Unit:** 26 suites (see inventory below); run via `repo/run_tests.sh` (Jest in Docker) or `npx jest --config jest.unit.config.js`.
+- **API / e2e:** 8 suites under `repo/API_tests/` (auth, auth challenge, health, offerings list, categories, audit RBAC, download, reservations/enrollments). Run via `./run_tests.sh` (starts Postgres in Docker) or `npx jest --config jest.api.config.js --runInBand` with `DB_*` and secrets set.
 
 ## Test Suite Inventory
 

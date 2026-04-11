@@ -4,7 +4,7 @@ Date: 2026-04-09
 Scope: Re-check previously reported issues after implementation updates.
 
 ## Summary
-- Fixed: 12
+- Fixed: 13
 - Not fixed: 0
 
 ## 1) Object-level authorization missing (Blocker)
@@ -100,5 +100,12 @@ Scope: Re-check previously reported issues after implementation updates.
   - Filename sanitizer prefixes a UUID segment:
     - `src/files/file-validator.service.ts`
 
+## 12) Sensitive-data leakage risk in logs/responses (Section 7, audit_report-1.md)
+- Status: **Fixed** (verified)
+- Original audit note: response masking helps; encryption-at-rest is tracked separately under issue **#2** (Sensitive data encryption).
+- **Response path:** `MaskingInterceptor` strips password hashes and masks government/employee identifiers before JSON responses (`src/common/interceptors/masking.interceptor.ts`). Unit coverage: `repo/unit_tests/masking/masking.spec.ts`.
+- **Storage path:** Sensitive columns use AES-256-GCM at rest via `EncryptionService` (see issue #2); masking does not replace encryption and both layers are now in place.
+- **Logging:** No structured logging of raw passwords or decrypted secrets in request handlers; audit events record action metadata without credential bodies (`src/audit/audit.service.ts`).
+
 ## Final follow-up verdict
-- previously reported blocker/high/medium issues are now implemented in code.
+- Previously reported blocker/high/medium issues and the sensitive-data response/storage controls above are implemented and cross-referenced in tests and fix checks.

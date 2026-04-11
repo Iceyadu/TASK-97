@@ -1,0 +1,38 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import request from 'supertest';
+import { AppModule } from '../src/app.module';
+import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
+import { TraceIdInterceptor } from '../src/common/interceptors/trace-id.interceptor';
+import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
+
+describe('Auth challenge API (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalFilters(new HttpExceptionFilter());
+    app.useGlobalInterceptors(new TraceIdInterceptor(), new ResponseInterceptor());
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  it('GET /api/v1/auth/challenge returns challenge fields', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/auth/challenge');
+    expect(res.status).toBe(200);
+    const body = res.body.data || res.body;
+    expect(body).toHaveProperty('challengeId');
+    expect(body).toHaveProperty('prefix');
+    expect(body).toHaveProperty('difficulty');
+    expect(body).toHaveProperty('expiresAt');
+  });
+});

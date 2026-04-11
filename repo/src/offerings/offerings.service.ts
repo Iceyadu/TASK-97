@@ -66,13 +66,25 @@ export class OfferingsService {
   }
 
   async findAll(query: {
-    page?: number;
-    pageSize?: number;
+    page?: number | string;
+    pageSize?: number | string;
     status?: string;
     search?: string;
   }) {
-    const page = query.page || 1;
-    const pageSize = Math.min(query.pageSize || 20, 100);
+    const toInt = (v: number | string | undefined, d: number) => {
+      if (v === undefined || v === '') return d;
+      const n = typeof v === 'string' ? parseInt(v, 10) : v;
+      if (!Number.isFinite(n) || n < 1) {
+        throw new BadRequestException('Invalid page or pageSize');
+      }
+      return n;
+    };
+    const page = toInt(query.page, 1);
+    const rawSize = query.pageSize === undefined || query.pageSize === '' ? 20 : toInt(query.pageSize, 20);
+    const pageSize = Math.min(rawSize, 100);
+    if (query.status && !['open', 'closed', 'upcoming'].includes(query.status)) {
+      throw new BadRequestException('Invalid status filter');
+    }
     const now = new Date();
 
     const qb = this.offeringRepo.createQueryBuilder('o');

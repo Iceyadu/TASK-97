@@ -118,4 +118,37 @@ describe('OfferingsService - Validation', () => {
       expect(result.seatsAvailable).toBe(100);
     });
   });
+
+  describe('findAll query validation', () => {
+    const qb = {
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockRepo.createQueryBuilder.mockReturnValue(qb);
+    });
+
+    it('rejects invalid status filter', async () => {
+      await expect(
+        service.findAll({ status: 'nope' }),
+      ).rejects.toThrow('Invalid status filter');
+    });
+
+    it('accepts string page and pageSize from query params', async () => {
+      await service.findAll({ page: '2', pageSize: '10' });
+      expect(qb.skip).toHaveBeenCalledWith(10);
+      expect(qb.take).toHaveBeenCalledWith(10);
+    });
+
+    it('rejects non-numeric page', async () => {
+      await expect(service.findAll({ page: 'x' })).rejects.toThrow(
+        'Invalid page or pageSize',
+      );
+    });
+  });
 });

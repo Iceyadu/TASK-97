@@ -293,7 +293,7 @@ Authorization is enforced at the guard/interceptor level, not in service logic, 
 - Token expires in 15 minutes.
 - `GET /files/download?token=<base64-encoded-token>` validates signature and expiry, then streams the file.
 - Expired or invalid tokens return `401`.
-- Token generation requires authentication; download endpoint validates the token itself (no session needed).
+- Token generation requires authentication. The download endpoint also requires a valid `Authorization: Bearer <session>` header; the server verifies that the token’s embedded user id matches the authenticated session user before streaming (defense-in-depth beyond signature checks).
 
 ## 19. Encryption-at-Rest Strategy
 

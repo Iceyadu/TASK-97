@@ -5,7 +5,6 @@ import {
   Delete,
   Param,
   Body,
-  Headers,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
@@ -13,6 +12,7 @@ import {
 import { IsUUID, IsNotEmpty } from 'class-validator';
 import { ReservationsService } from './reservations.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { IdempotencyKeyHeader } from '../common/decorators/idempotency-key-header.decorator';
 
 class CreateReservationDto {
   @IsUUID('4')
@@ -27,7 +27,7 @@ export class ReservationsController {
   @Post()
   async create(
     @Body() dto: CreateReservationDto,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @IdempotencyKeyHeader() idempotencyKey: string,
     @CurrentUser('id') userId: string,
   ) {
     return this.reservationsService.createReservation(
@@ -53,7 +53,7 @@ export class ReservationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async release(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @IdempotencyKeyHeader() idempotencyKey: string,
     @CurrentUser('id') userId: string,
     @CurrentUser('userRoles') userRoles?: Array<{ role?: { name?: string } }>,
   ) {

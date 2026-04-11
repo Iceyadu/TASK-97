@@ -95,16 +95,18 @@ docker compose down              # Stop
 
 ## Testing
 
+`run_tests.sh` runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`) so Jest always uses a pinned Node version. API tests spin up a temporary PostgreSQL container; Jest reaches it via `host.docker.internal`. **Docker is required.**
+
 ```bash
-# Run all unit tests (23 suites, 249 tests)
+# Full suite (unit + API) — recommended
 ./run_tests.sh
 
-# Or individually:
-npx jest --config jest.unit.config.js
-
-# API tests (requires running PostgreSQL)
-npx jest --config jest.api.config.js
+# Optional: skip API or unit only
+RUN_API_TESTS=false ./run_tests.sh
+RUN_UNIT_TESTS=false ./run_tests.sh
 ```
+
+To match submission/CI, prefer the script above. For quick debugging only, after `npm ci` you can run `npx jest --config jest.unit.config.js` or `npx jest --config jest.api.config.js --runInBand` on the host, but Node version drift may differ from Docker.
 
 ## Scheduled Jobs
 

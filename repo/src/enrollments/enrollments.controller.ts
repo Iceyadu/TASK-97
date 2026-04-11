@@ -5,15 +5,26 @@ import {
   Param,
   Body,
   Query,
-  Headers,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { IsUUID, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsUUID,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsIn,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { EnrollmentsService } from './enrollments.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { IdempotencyKeyHeader } from '../common/decorators/idempotency-key-header.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { EnrollmentStatus } from './enrollment.entity';
 
 class ConfirmReservationDto {
   @IsUUID('4')
@@ -33,6 +44,34 @@ class ApproveEnrollmentDto {
   reason?: string;
 }
 
+class EnrollmentListQueryDto {
+  @IsOptional()
+  @IsUUID('4')
+  offeringId?: string;
+
+  @IsOptional()
+  @IsIn([
+    EnrollmentStatus.WAITLISTED,
+    EnrollmentStatus.APPROVED,
+    EnrollmentStatus.CONFIRMED,
+    EnrollmentStatus.CANCELED,
+  ])
+  status?: EnrollmentStatus;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize?: number;
+}
+
 @Controller('enrollments')
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
@@ -40,7 +79,7 @@ export class EnrollmentsController {
   @Post('confirm')
   async confirm(
     @Body() dto: ConfirmReservationDto,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @IdempotencyKeyHeader() idempotencyKey: string,
     @CurrentUser('id') userId: string,
   ) {
     return this.enrollmentsService.confirmReservation(
@@ -54,7 +93,7 @@ export class EnrollmentsController {
   async cancel(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: CancelEnrollmentDto,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @IdempotencyKeyHeader() idempotencyKey: string,
     @CurrentUser('id') userId: string,
     @CurrentUser('userRoles') userRoles?: Array<{ role?: { name?: string } }>,
   ) {
@@ -86,7 +125,7 @@ export class EnrollmentsController {
   @Roles('enrollment_manager', 'admin')
   async confirmApproved(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @IdempotencyKeyHeader() idempotencyKey: string,
     @CurrentUser('id') actorId: string,
   ) {
     return this.enrollmentsService.confirmApprovedEnrollment(
@@ -98,17 +137,14 @@ export class EnrollmentsController {
 
   @Get()
   async findAll(
-    @Query('offeringId') offeringId?: string,
-    @Query('status') status?: string,
-    @Query('page') page?: number,
-    @Query('pageSize') pageSize?: number,
+    @Query() query: EnrollmentListQueryDto,
     @CurrentUser('id') userId?: string,
   ) {
     return this.enrollmentsService.findAll({
-      page,
-      pageSize,
-      offeringId,
-      status,
+      page: query.page,
+      pageSize: query.pageSize,
+      offeringId: query.offeringId,
+      status: query.status,
       userId,
     });
   }

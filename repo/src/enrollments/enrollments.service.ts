@@ -331,18 +331,25 @@ export class EnrollmentsService {
         );
       }
 
-      // Decrement seat for the offering
-      const seatResult = await manager
-        .createQueryBuilder()
-        .update(Offering)
-        .set({ seatsAvailable: () => '"seatsAvailable" - 1' })
-        .where('id = :id AND "seatsAvailable" > 0', {
-          id: enrollment.offeringId,
-        })
-        .execute();
+      // Seat was already decremented when the reservation was held. Only decrement
+      // here for APPROVED enrollments that did not consume a seat at reservation time
+      // (e.g. waitlist → approve path).
+      const seatAlreadyHeldAtReservation =
+        enrollment.reservationId != null;
 
-      if (seatResult.affected === 0) {
-        throw new ConflictException('No seats available for this offering');
+      if (!seatAlreadyHeldAtReservation) {
+        const seatResult = await manager
+          .createQueryBuilder()
+          .update(Offering)
+          .set({ seatsAvailable: () => '"seatsAvailable" - 1' })
+          .where('id = :id AND "seatsAvailable" > 0', {
+            id: enrollment.offeringId,
+          })
+          .execute();
+
+        if (seatResult.affected === 0) {
+          throw new ConflictException('No seats available for this offering');
+        }
       }
 
       enrollment.status = EnrollmentStatus.CONFIRMED;

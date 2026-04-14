@@ -112,8 +112,8 @@ export class OfferingsController {
 
   @Get()
   async findAll(
-    @Query('page') page?: number,
-    @Query('pageSize') pageSize?: number,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
   ) {

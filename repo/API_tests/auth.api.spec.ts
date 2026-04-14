@@ -40,7 +40,17 @@ describe('Auth API (e2e)', () => {
       });
 
       expect([200, 201]).toContain(res.status);
-      expect(res.body.data || res.body).toHaveProperty('id');
+      const body = res.body.data || res.body;
+      expect(body).toMatchObject({
+        id: expect.any(String),
+        username: expect.any(String),
+        displayName: 'Test User',
+      });
+      expect(body).not.toHaveProperty('passwordHash');
+      expect(res.body.meta).toMatchObject({
+        traceId: expect.any(String),
+        timestamp: expect.any(String),
+      });
     });
 
     it('should reject weak passwords', async () => {
@@ -53,6 +63,8 @@ describe('Auth API (e2e)', () => {
         });
 
       expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.body.message).toEqual(expect.any(String));
+      expect(res.body.traceId).toEqual(expect.any(String));
     });
 
     it('should reject duplicate usernames', async () => {
@@ -70,6 +82,7 @@ describe('Auth API (e2e)', () => {
       });
 
       expect(res.status).toBe(409);
+      expect(res.body.message).toContain('Username');
     });
   });
 
@@ -93,6 +106,13 @@ describe('Auth API (e2e)', () => {
       const body = res.body.data || res.body;
       expect(body).toHaveProperty('token');
       expect(body).toHaveProperty('expiresAt');
+      expect(typeof body.token).toBe('string');
+      expect(body.token.length).toBeGreaterThan(20);
+      expect(new Date(body.expiresAt).toString()).not.toBe('Invalid Date');
+      expect(res.body.meta).toMatchObject({
+        traceId: expect.any(String),
+        timestamp: expect.any(String),
+      });
     });
 
     it('should reject invalid credentials', async () => {
@@ -101,6 +121,8 @@ describe('Auth API (e2e)', () => {
         .send({ username, password: 'wrongpassword123' });
 
       expect(res.status).toBe(401);
+      expect(res.body.message).toContain('Invalid credentials');
+      expect(res.body.traceId).toEqual(expect.any(String));
     });
   });
 
@@ -110,6 +132,7 @@ describe('Auth API (e2e)', () => {
         .get('/api/v1/users/me');
 
       expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
 
     it('should reject unauthenticated access to /enrollments', async () => {
@@ -117,6 +140,7 @@ describe('Auth API (e2e)', () => {
         .get('/api/v1/enrollments');
 
       expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
 
     it('should reject unauthenticated access to /files/download', async () => {
@@ -124,6 +148,7 @@ describe('Auth API (e2e)', () => {
         .get('/api/v1/files/download?token=invalid');
 
       expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
   });
 });

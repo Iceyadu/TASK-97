@@ -3,22 +3,24 @@ import { AuditService } from '../../src/audit/audit.service';
 describe('AuditService', () => {
   let service: AuditService;
   let mockRepo: any;
+  let qb: any;
 
   beforeEach(() => {
+    qb = {
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([
+        [{ id: 'a1', action: 'test.action' }],
+        1,
+      ]),
+    };
     mockRepo = {
       create: jest.fn((data) => data),
       save: jest.fn((data) => Promise.resolve({ id: 'audit-1', ...data })),
       findOne: jest.fn(),
-      createQueryBuilder: jest.fn(() => ({
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([
-          [{ id: 'a1', action: 'test.action' }],
-          1,
-        ]),
-      })),
+      createQueryBuilder: jest.fn(() => qb),
     };
     service = new AuditService(mockRepo);
   });
@@ -72,11 +74,57 @@ describe('AuditService', () => {
       expect(result).toHaveProperty('items');
       expect(result).toHaveProperty('total');
       expect(result.page).toBe(1);
+      expect(qb.orderBy).toHaveBeenCalledWith('ae.timestamp', 'DESC');
+      expect(qb.skip).toHaveBeenCalledWith(0);
+      expect(qb.take).toHaveBeenCalledWith(10);
     });
 
     it('should cap page size at 100', async () => {
       const result = await service.findAll({ pageSize: 500 });
       expect(result.pageSize).toBeLessThanOrEqual(100);
+      expect(qb.take).toHaveBeenCalledWith(100);
+    });
+
+    it('applies all supported filters', async () => {
+      const from = new Date('2026-01-01T00:00:00Z');
+      const to = new Date('2026-01-31T00:00:00Z');
+      await service.findAll({
+        actorId: 'u1',
+        resourceType: 'offerings',
+        resourceId: 'off-1',
+        action: 'offering.create',
+        traceId: 'trace-1',
+        from,
+        to,
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('ae.actorId = :actorId', {
+        actorId: 'u1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'ae.resourceType = :resourceType',
+        { resourceType: 'offerings' },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith('ae.resourceId = :resourceId', {
+        resourceId: 'off-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('ae.action = :action', {
+        action: 'offering.create',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('ae.traceId = :traceId', {
+        traceId: 'trace-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('ae.timestamp >= :from', {
+        from,
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('ae.timestamp <= :to', { to });
+    });
+
+    it('uses default pagination values', async () => {
+      const result = await service.findAll({});
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(20);
+      expect(qb.skip).toHaveBeenCalledWith(0);
+      expect(qb.take).toHaveBeenCalledWith(20);
     });
   });
 

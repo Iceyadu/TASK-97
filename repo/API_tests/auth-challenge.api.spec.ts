@@ -34,5 +34,15 @@ describe('Auth challenge API (e2e)', () => {
     expect(body).toHaveProperty('prefix');
     expect(body).toHaveProperty('difficulty');
     expect(body).toHaveProperty('expiresAt');
+    expect(typeof body.challengeId).toBe('string');
+    expect(typeof body.prefix).toBe('string');
+    expect(typeof body.difficulty).toBe('number');
+    expect(body.difficulty).toBeGreaterThan(0);
+    expect(new Date(body.expiresAt).toString()).not.toBe('Invalid Date');
+    expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+    expect(res.body.meta).toMatchObject({
+      traceId: expect.any(String),
+      timestamp: expect.any(String),
+    });
   });
 });

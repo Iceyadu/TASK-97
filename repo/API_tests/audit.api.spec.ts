@@ -44,5 +44,8 @@ describe('Audit API (e2e)', () => {
       .get('/api/v1/audit-events')
       .set('Authorization', `Bearer ${userToken}`);
     expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Forbidden');
+    expect(res.body.message).toEqual(expect.any(String));
+    expect(res.body.traceId).toEqual(expect.any(String));
   });
 });

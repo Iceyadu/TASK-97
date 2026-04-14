@@ -39,9 +39,16 @@ describe('Categories API (e2e)', () => {
     await app?.close();
   });
 
-  it('GET /api/v1/categories is public and returns 200', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/categories');
+  it('GET /api/v1/categories returns list with response metadata for authenticated users', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/categories')
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.meta).toMatchObject({
+      traceId: expect.any(String),
+      timestamp: expect.any(String),
+    });
   });
 
   it('POST /api/v1/categories requires enrollment_manager or admin', async () => {
@@ -50,5 +57,7 @@ describe('Categories API (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ name: `Cat ${Date.now()}` });
     expect([403, 401]).toContain(res.status);
+    expect(res.body.message).toEqual(expect.any(String));
+    expect(res.body.traceId).toEqual(expect.any(String));
   });
 });

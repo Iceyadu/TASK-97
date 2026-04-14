@@ -80,10 +80,30 @@ describe('CategoriesService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('returns full category tree ordered by path when parentId is omitted', async () => {
+      await service.findAll();
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        relations: ['children'],
+        order: { path: 'ASC' },
+      });
+    });
+
+    it('returns children of a parent ordered by name', async () => {
+      await service.findAll('parent-1');
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { parentId: 'parent-1' },
+        relations: ['children'],
+        order: { name: 'ASC' },
+      });
+    });
+  });
+
   describe('delete', () => {
     it('should delete category with no children', async () => {
       mockRepo.count.mockResolvedValue(0);
       await expect(service.delete('cat-1')).resolves.toBeUndefined();
+      expect(mockRepo.delete).toHaveBeenCalledWith('cat-1');
     });
 
     it('should reject deletion of category with children', async () => {

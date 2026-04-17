@@ -1,5 +1,7 @@
 # Meridian Learning Content & Enrollment Management System
 
+Project type: **backend**
+
 ## Implementation Summary
 
 A self-contained, offline-capable backend API for managing digital learning content (EPUB, PDF, TXT, MP4, MP3) and controlling enrollment into limited-seat learning offerings. Built as a single-machine backend with NestJS, TypeORM, and PostgreSQL.
@@ -51,8 +53,13 @@ A self-contained, offline-capable backend API for managing digital learning cont
 cp .env.example .env
 # Edit .env: set real values for ENCRYPTION_KEY, DOWNLOAD_TOKEN_SECRET, DB_PASSWORD
 
-# 2. Start services
+# 2. Start services (from this directory, where docker-compose.yml lives)
 docker compose up --build -d
+# Strict-compat startup command
+docker-compose up
+
+# From repository root (parent of this folder) you can instead run:
+# docker compose -f src/docker-compose.yml up --build -d
 
 # 3. Verify
 curl http://localhost:3000/api/v1/health
@@ -75,10 +82,13 @@ All configuration via environment variables (see `.env.example`):
 ## Docker Deployment
 
 ```bash
+# Run in this directory (src/), or pass -f src/docker-compose.yml from repo root
 docker compose up --build -d    # Start
 docker compose logs -f app      # View logs
 docker compose down              # Stop
 ```
+
+Image build uses the `Dockerfile` in the **repository root** (parent directory) with build context `.` = that root, so only `src/` is copied into the image (see root `.dockerignore`).
 
 - **Fully offline:** No outbound network calls. All deps baked into Docker image.
 - **Persistent volumes:** `pg_data` for database, `file_storage` for uploaded files.
@@ -93,20 +103,73 @@ docker compose down              # Stop
 - CAPTCHA replaced with local proof-of-work challenge (SHA-256 prefix puzzle).
 - Virus scanning limited to structural validation (no external AV).
 
+## Repository layout
+
+At the **repository root** (the directory that contains this `src/` folder), only these top-level items are intended:
+
+- `src/` — NestJS application **and** Node project metadata (`package.json`, `tsconfig*.json`, `nest-cli.json`, Jest configs, `docker-compose.yml`, `run_tests.sh`, this `README`, `.env.example`, etc.)
+- `unit_tests/` — Jest unit tests
+- `API_tests/` — Jest API / e2e tests
+- `Dockerfile` — production image build (context = repository root)
+
+**Generated artifacts** (gitignored): `src/node_modules/`, `src/dist/`, and `coverage/` under the repo root when present. Remove local clutter with `npm run clean` run from `src/`. Prefer `run_tests.sh` so dependencies install inside Docker (see Testing).
+
 ## Testing
 
-`run_tests.sh` runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`) so Jest always uses a pinned Node version. API tests spin up a temporary PostgreSQL container; Jest reaches it via `host.docker.internal`. **Docker is required.**
+`run_tests.sh` runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`) so Jest always uses a pinned Node version. It bind-mounts the **repository root** so `unit_tests/` and `API_tests/` are visible, and runs `npm` from `src/`. API tests spin up a temporary PostgreSQL container; Jest reaches it via `host.docker.internal`. **Docker is required.**
 
 ```bash
-# Full suite (unit + API) — recommended
+# From this directory (src/)
 ./run_tests.sh
+
+# From repository root (parent directory)
+./src/run_tests.sh
 
 # Optional: skip API or unit only
 RUN_API_TESTS=false ./run_tests.sh
 RUN_UNIT_TESTS=false ./run_tests.sh
 ```
 
-To match submission/CI, prefer the script above. For quick debugging only, after `npm ci` you can run `npx jest --config jest.unit.config.js` or `npx jest --config jest.api.config.js --runInBand` on the host, but Node version drift may differ from Docker.
+All test execution is Docker-contained via `run_tests.sh`. Do not use host-side dependency installs for submission validation.
+
+## Access
+
+- Base URL: `http://localhost:3000`
+- API prefix: `/api/v1`
+- Health URL: `http://localhost:3000/api/v1/health`
+- Auth header format: `Authorization: Bearer <session-token>`
+
+## Demo Credentials and Roles
+
+Authentication is required.
+
+Provision demo users with `POST /api/v1/auth/register` (PoW challenge required), then assign roles via `POST /api/v1/admin/users/:id/roles`.
+
+| Role | Username | Password |
+|---|---|---|
+| `admin` | `demo_admin` | `P@ssw0rd!Strong123` |
+| `content_manager` | `demo_content_manager` | `P@ssw0rd!Strong123` |
+| `enrollment_manager` | `demo_enrollment_manager` | `P@ssw0rd!Strong123` |
+| `learner` | `demo_learner` | `P@ssw0rd!Strong123` |
+
+If these users are not pre-seeded in your environment, create them before validation and assign the listed roles.
+
+## Verification Flows
+
+```bash
+# 1) Liveness
+curl http://localhost:3000/api/v1/health
+
+# 2) Auth flow (challenge + register + login)
+curl http://localhost:3000/api/v1/auth/challenge
+# then call /auth/register with challengeId+nonce and /auth/login to obtain Bearer token
+
+# 3) Business flow sample (with Bearer token)
+# - GET /api/v1/categories
+# - POST /api/v1/offerings
+# - POST /api/v1/reservations
+# - POST /api/v1/enrollments/confirm
+```
 
 ## Scheduled Jobs
 

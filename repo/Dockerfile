@@ -1,24 +1,23 @@
-# Stage 1: Build
+# Build context must be the repository root (directory that contains `src/`).
+# Example: docker build -f Dockerfile .
+
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY src/package*.json ./
 RUN npm ci --ignore-scripts
 
-COPY tsconfig*.json ./
-COPY src/ ./src/
-
+COPY src/ ./
 RUN npm run build
 
-# Stage 2: Production
 FROM node:20-alpine AS production
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY src/package*.json ./
 RUN npm ci --only=production
 
 COPY --from=builder /app/dist ./dist

@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { join } from 'path';
 
 export default new DataSource({
   type: 'postgres',
@@ -7,6 +8,12 @@ export default new DataSource({
   username: process.env.DB_USERNAME || 'meridian',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'meridian_db',
-  entities: ['src/**/*.entity.ts'],
-  migrations: ['src/database/migrations/*.ts'],
+  entities: [
+    join(__dirname, '..', '**', '*.entity.ts'),
+    join(__dirname, '..', '**', '*.entity.js'),
+  ],
+  migrations: [
+    join(__dirname, 'migrations', '*.ts'),
+    join(__dirname, 'migrations', '*.js'),
+  ],
 });

@@ -1,6 +1,8 @@
 node_modules/
+repo/node_modules
 dist/
 coverage/
+repo/coverage/
 .env
 *.log
 .DS_Store

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# Application + Node project root (this directory)
+APP_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Repository root: API_tests/, unit_tests/, src/, Dockerfile
+REPO_ROOT="$(cd "$APP_SRC/.." && pwd)"
+cd "$APP_SRC"
 
 echo "==================================="
 echo "Meridian Test Runner"
-echo "Script: $SCRIPT_DIR/run_tests.sh (v3-docker)"
+echo "Script: $APP_SRC/run_tests.sh (v3-docker)"
+echo "Repo root: $REPO_ROOT"
 echo "==================================="
 
 RED='\033[0;31m'
@@ -26,27 +30,36 @@ TEST_POW_DIFFICULTY="${TEST_POW_DIFFICULTY:-8}"
 TEST_ENCRYPTION_KEY="${TEST_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
 TEST_DOWNLOAD_TOKEN_SECRET="${TEST_DOWNLOAD_TOKEN_SECRET:-0000000000000000000000000000000000000000000000000000000000000000}"
 NODE_TEST_IMAGE="${NODE_TEST_IMAGE:-node:20-bookworm-slim}"
+TEST_NODE_MODULES_VOLUME="meridian-test-node-modules-$$"
 
 cleanup_test_db() {
   docker rm -f "$TEST_DB_CONTAINER" >/dev/null 2>&1 || true
 }
 
+cleanup_node_modules_volume() {
+  docker volume rm "$TEST_NODE_MODULES_VOLUME" >/dev/null 2>&1 || true
+}
+
 # Run Jest inside a pinned Node Docker image so the host Node version is irrelevant.
 run_unit_jest_in_docker() {
   docker run --rm \
-    -v "$SCRIPT_DIR:/app" \
-    -w /app \
+    -v "$REPO_ROOT:/repo" \
+    -v "$TEST_NODE_MODULES_VOLUME:/repo/src/node_modules" \
+    -w /repo/src \
     -e CI=true \
     -e NPM_CONFIG_UPDATE_NOTIFIER=false \
     -e NODE_ENV=test \
     "$NODE_TEST_IMAGE" \
-    bash -lc "set -euo pipefail; npm ci --ignore-scripts; exec npx jest --config jest.unit.config.js --no-cache"
+    bash -lc "set -euo pipefail; npm ci --ignore-scripts; (cd /repo && ln -sfn src/node_modules node_modules); exec npx jest --config jest.unit.config.js --no-cache"
 }
 
 if ! command -v docker >/dev/null 2>&1; then
   echo -e "${RED}Docker is required to run tests (pinned Node in container).${NC}"
   exit 1
 fi
+
+trap cleanup_node_modules_volume EXIT
+cleanup_node_modules_volume
 
 # --- Unit Tests ---
 if [ "$RUN_UNIT_TESTS" = "true" ]; then
@@ -68,7 +81,7 @@ if [ "$RUN_API_TESTS" = "true" ]; then
   echo ""
   echo -e "${YELLOW}Running API tests in Docker (${NODE_TEST_IMAGE}) + PostgreSQL container...${NC}"
 
-  trap cleanup_test_db EXIT
+  trap "cleanup_test_db; cleanup_node_modules_volume" EXIT
   cleanup_test_db
 
   if ! docker run -d \
@@ -99,11 +112,11 @@ if [ "$RUN_API_TESTS" = "true" ]; then
         echo -e "${RED}Could not resolve mapped DB port for test container.${NC}"
         FAILED=1
       else
-        # Jest runs inside another container: reach Postgres on the host port via host gateway.
         if docker run --rm \
           --add-host=host.docker.internal:host-gateway \
-          -v "$SCRIPT_DIR:/app" \
-          -w /app \
+          -v "$REPO_ROOT:/repo" \
+          -v "$TEST_NODE_MODULES_VOLUME:/repo/src/node_modules" \
+          -w /repo/src \
           -e CI=true \
           -e NPM_CONFIG_UPDATE_NOTIFIER=false \
           -e NODE_ENV=test \
@@ -117,7 +130,7 @@ if [ "$RUN_API_TESTS" = "true" ]; then
           -e POW_DIFFICULTY="$TEST_POW_DIFFICULTY" \
           -e DB_SYNC=true \
           "$NODE_TEST_IMAGE" \
-          bash -lc "set -euo pipefail; npm ci --ignore-scripts; exec npx jest --config jest.api.config.js --no-cache --runInBand"; then
+          bash -lc "set -euo pipefail; npm ci --ignore-scripts; (cd /repo && ln -sfn src/node_modules node_modules); exec npx jest --config jest.api.config.js --no-cache --runInBand"; then
           echo -e "${GREEN}API tests passed.${NC}"
         else
           echo -e "${RED}API tests failed.${NC}"

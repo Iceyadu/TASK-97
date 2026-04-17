@@ -12,10 +12,11 @@
     "test:unit": "jest --config jest.unit.config.js",
     "test:api": "jest --config jest.api.config.js",
     "test:cov": "jest --coverage",
+    "clean": "rm -rf dist node_modules coverage",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migration:generate": "npm run typeorm -- migration:generate",
-    "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts"
+    "migration:run": "npm run typeorm -- migration:run -d database/data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d database/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

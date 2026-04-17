@@ -1,5 +1,5 @@
 {
-  "project_type": "backend-api",
+  "project_type": "server",
   "prompt": "Meridian Learning Content & Enrollment Management system: offline-first cataloging of digital learning materials and controlled enrollment into limited-seat offerings.",
   "backend_language": "TypeScript",
   "backend_framework": "NestJS",

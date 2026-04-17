@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Application + Node project root (this directory)
-APP_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Repository root: API_tests/, unit_tests/, src/, Dockerfile
-REPO_ROOT="$(cd "$APP_SRC/.." && pwd)"
-cd "$APP_SRC"
+# Repository root: API_tests/, unit_tests/, src/, Dockerfile, this script
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_SRC="$REPO_ROOT/src"
 
 echo "==================================="
 echo "Meridian Test Runner"
-echo "Script: $APP_SRC/run_tests.sh (v3-docker)"
+echo "Script: $REPO_ROOT/run_tests.sh (v3-docker)"
 echo "Repo root: $REPO_ROOT"
 echo "==================================="
 

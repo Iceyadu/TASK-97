@@ -107,7 +107,8 @@ Image build uses the `Dockerfile` in the **repository root** (parent directory) 
 
 At the **repository root** (the directory that contains this `src/` folder), only these top-level items are intended:
 
-- `src/` — NestJS application **and** Node project metadata (`package.json`, `tsconfig*.json`, `nest-cli.json`, Jest configs, `docker-compose.yml`, `run_tests.sh`, this `README`, `.env.example`, etc.)
+- `src/` — NestJS application **and** Node project metadata (`package.json`, `tsconfig*.json`, `nest-cli.json`, Jest configs, `docker-compose.yml`, this `README`, `.env.example`, etc.)
+- `run_tests.sh` — at **repository root** (sibling of `src/`), Docker test runner
 - `unit_tests/` — Jest unit tests
 - `API_tests/` — Jest API / e2e tests
 - `Dockerfile` — production image build (context = repository root)
@@ -116,14 +117,11 @@ At the **repository root** (the directory that contains this `src/` folder), onl
 
 ## Testing
 
-`run_tests.sh` runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`) so Jest always uses a pinned Node version. It bind-mounts the **repository root** so `unit_tests/` and `API_tests/` are visible, and runs `npm` from `src/`. API tests spin up a temporary PostgreSQL container; Jest reaches it via `host.docker.internal`. **Docker is required.**
+`run_tests.sh` (at **repository root**, next to `src/`) runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`) so Jest always uses a pinned Node version. It bind-mounts the **repository root** so `unit_tests/` and `API_tests/` are visible, and runs `npm` from `src/`. API tests spin up a temporary PostgreSQL container; Jest reaches it via `host.docker.internal`. **Docker is required.**
 
 ```bash
-# From this directory (src/)
+# From repository root (directory that contains src/, unit_tests/, API_tests/)
 ./run_tests.sh
-
-# From repository root (parent directory)
-./src/run_tests.sh
 
 # Optional: skip API or unit only
 RUN_API_TESTS=false ./run_tests.sh

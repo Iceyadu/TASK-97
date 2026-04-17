@@ -3,7 +3,6 @@ set -euo pipefail
 
 # Repository root: API_tests/, unit_tests/, src/, Dockerfile, this script
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_SRC="$REPO_ROOT/src"
 
 echo "==================================="
 echo "Meridian Test Runner"
@@ -20,7 +19,7 @@ FAILED=0
 RUN_UNIT_TESTS="${RUN_UNIT_TESTS:-true}"
 RUN_API_TESTS="${RUN_API_TESTS:-true}"
 TEST_DB_CONTAINER="meridian-test-db-$$"
-TEST_DB_PORT="${TEST_DB_PORT:-}"
+TEST_NET="meridian-test-net-$$"
 TEST_DB_USER="${TEST_DB_USER:-meridian}"
 TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-meridian_test_password}"
 TEST_DB_NAME="${TEST_DB_NAME:-meridian_test}"
@@ -32,6 +31,10 @@ TEST_NODE_MODULES_VOLUME="meridian-test-node-modules-$$"
 
 cleanup_test_db() {
   docker rm -f "$TEST_DB_CONTAINER" >/dev/null 2>&1 || true
+}
+
+cleanup_test_net() {
+  docker network rm "$TEST_NET" >/dev/null 2>&1 || true
 }
 
 cleanup_node_modules_volume() {
@@ -47,8 +50,9 @@ run_unit_jest_in_docker() {
     -e CI=true \
     -e NPM_CONFIG_UPDATE_NOTIFIER=false \
     -e NODE_ENV=test \
+    -e NODE_PATH=/repo/src/node_modules \
     "$NODE_TEST_IMAGE" \
-    bash -lc "set -euo pipefail; npm ci --ignore-scripts; (cd /repo && ln -sfn src/node_modules node_modules); exec npx jest --config jest.unit.config.js --no-cache"
+    bash -lc "set -euo pipefail; npm ci --ignore-scripts; exec npx jest --config jest.unit.config.js --no-cache"
 }
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -79,15 +83,21 @@ if [ "$RUN_API_TESTS" = "true" ]; then
   echo ""
   echo -e "${YELLOW}Running API tests in Docker (${NODE_TEST_IMAGE}) + PostgreSQL container...${NC}"
 
-  trap "cleanup_test_db; cleanup_node_modules_volume" EXIT
+  trap "cleanup_test_db; cleanup_test_net; cleanup_node_modules_volume" EXIT
   cleanup_test_db
+  cleanup_test_net
 
-  if ! docker run -d \
+  # User-defined network: Jest reaches Postgres by container name (works on Linux CI).
+  # Publishing only to 127.0.0.1 breaks host.docker.internal from another container.
+  if ! docker network create "$TEST_NET" >/dev/null 2>&1; then
+    echo -e "${RED}Failed to create Docker network for API tests.${NC}"
+    FAILED=1
+  elif ! docker run -d \
+    --network "$TEST_NET" \
     --name "$TEST_DB_CONTAINER" \
     -e POSTGRES_USER="$TEST_DB_USER" \
     -e POSTGRES_PASSWORD="$TEST_DB_PASSWORD" \
     -e POSTGRES_DB="$TEST_DB_NAME" \
-    -p "127.0.0.1:${TEST_DB_PORT}:5432" \
     postgres:15-alpine >/dev/null; then
     echo -e "${RED}Failed to start test database container.${NC}"
     FAILED=1
@@ -105,35 +115,30 @@ if [ "$RUN_API_TESTS" = "true" ]; then
       echo -e "${RED}Test database did not become ready in time.${NC}"
       FAILED=1
     else
-      DB_MAPPED_PORT="$(docker port "$TEST_DB_CONTAINER" 5432/tcp | awk -F: '{print $2}')"
-      if [ -z "$DB_MAPPED_PORT" ]; then
-        echo -e "${RED}Could not resolve mapped DB port for test container.${NC}"
-        FAILED=1
+      if docker run --rm \
+        --network "$TEST_NET" \
+        -v "$REPO_ROOT:/repo" \
+        -v "$TEST_NODE_MODULES_VOLUME:/repo/src/node_modules" \
+        -w /repo/src \
+        -e CI=true \
+        -e NPM_CONFIG_UPDATE_NOTIFIER=false \
+        -e NODE_ENV=test \
+        -e DB_HOST="$TEST_DB_CONTAINER" \
+        -e DB_PORT=5432 \
+        -e DB_USERNAME="$TEST_DB_USER" \
+        -e DB_PASSWORD="$TEST_DB_PASSWORD" \
+        -e DB_NAME="$TEST_DB_NAME" \
+        -e ENCRYPTION_KEY="$TEST_ENCRYPTION_KEY" \
+        -e DOWNLOAD_TOKEN_SECRET="$TEST_DOWNLOAD_TOKEN_SECRET" \
+        -e POW_DIFFICULTY="$TEST_POW_DIFFICULTY" \
+        -e DB_SYNC=true \
+        -e NODE_PATH=/repo/src/node_modules \
+        "$NODE_TEST_IMAGE" \
+        bash -lc "set -euo pipefail; npm ci --ignore-scripts; exec npx jest --config jest.api.config.js --no-cache --runInBand"; then
+        echo -e "${GREEN}API tests passed.${NC}"
       else
-        if docker run --rm \
-          --add-host=host.docker.internal:host-gateway \
-          -v "$REPO_ROOT:/repo" \
-          -v "$TEST_NODE_MODULES_VOLUME:/repo/src/node_modules" \
-          -w /repo/src \
-          -e CI=true \
-          -e NPM_CONFIG_UPDATE_NOTIFIER=false \
-          -e NODE_ENV=test \
-          -e DB_HOST=host.docker.internal \
-          -e DB_PORT="$DB_MAPPED_PORT" \
-          -e DB_USERNAME="$TEST_DB_USER" \
-          -e DB_PASSWORD="$TEST_DB_PASSWORD" \
-          -e DB_NAME="$TEST_DB_NAME" \
-          -e ENCRYPTION_KEY="$TEST_ENCRYPTION_KEY" \
-          -e DOWNLOAD_TOKEN_SECRET="$TEST_DOWNLOAD_TOKEN_SECRET" \
-          -e POW_DIFFICULTY="$TEST_POW_DIFFICULTY" \
-          -e DB_SYNC=true \
-          "$NODE_TEST_IMAGE" \
-          bash -lc "set -euo pipefail; npm ci --ignore-scripts; (cd /repo && ln -sfn src/node_modules node_modules); exec npx jest --config jest.api.config.js --no-cache --runInBand"; then
-          echo -e "${GREEN}API tests passed.${NC}"
-        else
-          echo -e "${RED}API tests failed.${NC}"
-          FAILED=1
-        fi
+        echo -e "${RED}API tests failed.${NC}"
+        FAILED=1
       fi
     fi
   fi

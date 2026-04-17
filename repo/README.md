@@ -115,7 +115,7 @@ docker compose down              # Stop
 
 ## Testing
 
-`run_tests.sh` runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`). It bind-mounts **`repo/`** so `unit_tests/` and `API_tests/` are visible; `npm` runs from `src/`. API tests use a temporary PostgreSQL container. **Docker is required.**
+`run_tests.sh` runs **unit and API tests inside Docker** (`NODE_TEST_IMAGE`, default `node:20-bookworm-slim`). It bind-mounts **`repo/`** so `unit_tests/` and `API_tests/` are visible; `npm` runs from `src/`. API tests attach PostgreSQL and Jest to the **same Docker network** so the app connects by DB container name (reliable on Linux CI). **Docker is required.**
 
 ```bash
 # From repo/ (this directory)

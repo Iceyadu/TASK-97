@@ -50,9 +50,8 @@ run_unit_jest_in_docker() {
     -e CI=true \
     -e NPM_CONFIG_UPDATE_NOTIFIER=false \
     -e NODE_ENV=test \
-    -e NODE_PATH=/repo/src/node_modules \
     "$NODE_TEST_IMAGE" \
-    bash -lc "set -euo pipefail; npm ci --ignore-scripts; exec npx jest --config jest.unit.config.js --no-cache"
+    bash -lc "set -euo pipefail; npm ci --ignore-scripts; (cd /repo && ln -sfn src/node_modules node_modules); exec npx jest --config jest.unit.config.js --no-cache"
 }
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -132,9 +131,8 @@ if [ "$RUN_API_TESTS" = "true" ]; then
         -e DOWNLOAD_TOKEN_SECRET="$TEST_DOWNLOAD_TOKEN_SECRET" \
         -e POW_DIFFICULTY="$TEST_POW_DIFFICULTY" \
         -e DB_SYNC=true \
-        -e NODE_PATH=/repo/src/node_modules \
         "$NODE_TEST_IMAGE" \
-        bash -lc "set -euo pipefail; npm ci --ignore-scripts; exec npx jest --config jest.api.config.js --no-cache --runInBand"; then
+        bash -lc "set -euo pipefail; npm ci --ignore-scripts; (cd /repo && ln -sfn src/node_modules node_modules); exec npx jest --config jest.api.config.js --no-cache --runInBand"; then
         echo -e "${GREEN}API tests passed.${NC}"
       else
         echo -e "${RED}API tests failed.${NC}"
